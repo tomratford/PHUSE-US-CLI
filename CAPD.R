@@ -4,7 +4,7 @@
 
 Usage:
   CAPD welcome <first_name>
-  CAPD render --name=<name>
+  CAPD render (--name=<name> | --company=<name>)
   CAPD -h | --help
   CAPD --version
 

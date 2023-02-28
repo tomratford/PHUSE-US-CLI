@@ -3,13 +3,15 @@ title: "Your PHUSE Connect History"
 output: html_document
 date: "2023-02-28"
 params:
-  name: "Stuart Malcolm"
+  name: "Diana Stuart"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr)
+library(httr)
+library(jsonlite)
 
 # from https://gist.github.com/rentrop/83cb1d8fc8593726a808032e55314019
 url <- "https://phuse.global/api/graphql"
@@ -66,7 +68,7 @@ as_co_author <- GQL(glue::glue('query{
 }', .open="<", .close=">"))$archives
 
 all_connects <- bind_rows(as_author, as_co_author) %>%
-  mutate(category = strsplit(keywords, ";")[[1]][2],
+  mutate(category = trimws(sapply(strsplit(keywords, ";"),\(x) x[2])),
          was_virtual = if_else(city == "Virtual", T, F))
 ```
 
@@ -77,3 +79,36 @@ first <- arrange(all_connects, year, desc(region))[1,]
 ```
 
 Your first connect was PHUSE `first$region` `first$year`, you worked for `first$company` and presented in the `first$category` stream with "`first$title`".
+
+```{r first_city, include=!was_virtual}
+city <- GET(glue::glue("https://api.api-ninjas.com/v1/city?name={first$city}"), 
+                add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY")))
+  # If we got a good response
+  if (city$status_code == 200 && !identical(content(city),list())) {
+    city <- content(famous)
+    
+    # get the country it was held in
+    country <- GET(glue::glue("https://api.api-ninjas.com/v1/country?name={city$country}"), 
+                add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY")))
+    # If we got a good response
+    if (country$status_code == 200 && !identical(content(city), list())) {
+      country <- content(country)
+    } else {
+      # don't print the city info
+      was_virtual <- T
+    }
+  } else {
+    # don't print the city info
+    was_virtual <- T
+  }
+```
+```{asis, include=!was_virtual}
+This PHUSE was held in `first$city`, this city has a population of `city$population` and is located in the `country$name`.
+```
+
+# Your connect stats
+
+```{stats, include=FALSE}
+most_common <- sort(summary(as.factor(all_connects$category)), decreasing = T)[1]
+
+```
