@@ -4,6 +4,7 @@
 
 Usage:
   CAPD welcome <first_name>
+  CAPD render --name=<name>
   CAPD -h | --help
   CAPD --version
 
@@ -22,14 +23,16 @@ if (args$welcome) {
   famous <- GET(glue::glue("https://api.api-ninjas.com/v1/historicalfigures?name={args$first_name}"), 
                 add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY")))
   
-  # If we got a cood response
+  # If we got a good response
   if (famous$status_code == 200 && !identical(content(famous),list())) {
     # Pick a random person
     person <- sample(content(famous), 1)[[1]]
     # Remove (occupation) from `Name (occupation)` if it's there
     fixed_name <- strsplit(person$name, split="\\(")[[1]][1]
+    # Check if they're dead
+    tense <- ifelse(!is.null(person$info$died),"was", "is")
     # Create the fact
-    fact <- glue::glue("Did you know there was a {person$title} called {fixed_name}?")
+    fact <- glue::glue("Did you know there {tense} a {person$title} called {fixed_name}?")
   } else {
     # placeholder
     fact <- "I can't find anyone famous with your name :("
@@ -37,7 +40,7 @@ if (args$welcome) {
   
   cli::cli_bullets(c(
     #
-    "Hello {args$first_name}{ifelse(!is.null(args$last_name), paste0(\" \",args$last_name),\"\")}!",
+    "Hello {args$first_name}!",
     i = fact
   )
   )
