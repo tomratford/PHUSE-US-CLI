@@ -45,3 +45,9 @@ if (args$welcome) {
   )
   )
 }
+
+if (args$render) {
+  if (!is.null(args$name)) {
+    rmarkdown::render("user_phuse.Rmd", params=list(name=args$name))
+  }
+}

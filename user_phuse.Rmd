@@ -1,17 +1,23 @@
 ---
-title: "Your PHUSE Connect History"
+title: "Your PHUSE Connect Presenter History"
 output: html_document
-date: "2023-02-28"
 params:
-  name: "Diana Stuart"
+  name: "Thomas Neitmann"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 
 library(dplyr)
 library(httr)
 library(jsonlite)
+
+library(ggplot2)
+library(sf)
+
+library("rnaturalearth")
+library("rnaturalearthdata")
+
 
 # from https://gist.github.com/rentrop/83cb1d8fc8593726a808032e55314019
 url <- "https://phuse.global/api/graphql"
@@ -52,7 +58,7 @@ as_author <- GQL(glue::glue('query{
 }', .open="<", .close=">"))$archives
 
 as_co_author <- GQL(glue::glue('query{
-  archives(sort: "year:DESC", start: 0, where: { event: "Connect" co_author_contains: "{params$name}" }) {
+  archives(sort: "year:DESC", start: 0, where: { event: "Connect" co_author_contains: "<params$name>" }) {
     event
     year
     city
@@ -68,31 +74,31 @@ as_co_author <- GQL(glue::glue('query{
 }', .open="<", .close=">"))$archives
 
 all_connects <- bind_rows(as_author, as_co_author) %>%
-  mutate(category = trimws(sapply(strsplit(keywords, ";"),\(x) x[2])),
-         was_virtual = if_else(city == "Virtual", T, F))
+  mutate(category = trimws(sapply(strsplit(keywords, ";"),\(x) x[2])))
 ```
 
 ## Your first connect...
 
 ```{r first_data, include=FALSE}
 first <- arrange(all_connects, year, desc(region))[1,]
+was_virtual <- if_else(first$city == "Virtual", T, F)
 ```
 
-Your first connect was PHUSE `first$region` `first$year`, you worked for `first$company` and presented in the `first$category` stream with "`first$title`".
+Your first connect was PHUSE `r first$region` `r first$year`, you presented for `r first$company` in the `r first$category` stream with _"`r first$title`"_.
 
-```{r first_city, include=!was_virtual}
-city <- GET(glue::glue("https://api.api-ninjas.com/v1/city?name={first$city}"), 
+```{r first_city, eval=!was_virtual, include=!was_virtual}
+city_req <- GET(glue::glue("https://api.api-ninjas.com/v1/city?name={first$city}"), 
                 add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY")))
   # If we got a good response
-  if (city$status_code == 200 && !identical(content(city),list())) {
-    city <- content(famous)
+  if (city_req$status_code == 200 && !identical(content(city_req),list())) {
+    city <- content(city_req)[[1]]
     
     # get the country it was held in
-    country <- GET(glue::glue("https://api.api-ninjas.com/v1/country?name={city$country}"), 
+    country_req <- GET(glue::glue("https://api.api-ninjas.com/v1/country?name={city$country}"), 
                 add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY")))
     # If we got a good response
-    if (country$status_code == 200 && !identical(content(city), list())) {
-      country <- content(country)
+    if (country_req$status_code == 200 && !identical(content(country_req), list())) {
+      country <- content(country_req)[[1]]
     } else {
       # don't print the city info
       was_virtual <- T
@@ -102,13 +108,28 @@ city <- GET(glue::glue("https://api.api-ninjas.com/v1/city?name={first$city}"),
     was_virtual <- T
   }
 ```
-```{asis, include=!was_virtual}
-This PHUSE was held in `first$city`, this city has a population of `city$population` and is located in the `country$name`.
+
+
+`r if (was_virtual) {"Your first PHUSE was virtual!"} else {glue::glue("This PHUSE was held in {first$city}, {country$name}. This city has a population of {format(city$population, big.mark=',')}.")}`
+
+
+## Your connect map
+
+```{r get_loc}
+raw <- lapply(unique(all_connects$city),\(x) GET(glue::glue("https://api.api-ninjas.com/v1/city?name={x}"), 
+            add_headers("X-Api-Key" = Sys.getenv("API_NINJAS_KEY"))) |> content())
+
+location <- do.call(bind_rows, raw)
 ```
 
-# Your connect stats
+```{r make_plot, eval=!identical(location, tibble())}
+world <- ne_countries(scale = "medium", returnclass = "sf")
 
-```{stats, include=FALSE}
-most_common <- sort(summary(as.factor(all_connects$category)), decreasing = T)[1]
-
+ggplot(world) + 
+  geom_sf() +
+  geom_point(data = location, aes(x = longitude, y = latitude), size = 4, shape = 23, fill = "blue") +
+  coord_sf(xlim=c(min(location$longitude) - 8, max(location$longitude + 8)), 
+           ylim=c(min(location$latitude) - 8, max(location$latitude + 8)),
+           expand = FALSE) +
+  theme_minimal()
 ```
