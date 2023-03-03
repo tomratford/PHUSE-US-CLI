@@ -50,4 +50,7 @@ if (args$render) {
   if (!is.null(args$name)) {
     rmarkdown::render("user_phuse.Rmd", params=list(name=args$name))
   }
+  if (!is.null(args$company)) {
+    rmarkdown::render("company_phuse.Rmd", params=list(name=args$company))
+  }
 }

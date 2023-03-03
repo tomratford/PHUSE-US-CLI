@@ -1,8 +1,8 @@
 ---
-title: "Your PHUSE Connect Presenter History"
+title: "`r params$name`'s PHUSE Connect Presenter History"
 output: html_document
 params:
-  name: "Diana Stuart"
+  name: "Veramed"
 ---
 
 ```{r setup, include=FALSE}
@@ -41,8 +41,8 @@ GQL <- function(query,
   res$data
 }
 
-as_author <- GQL(glue::glue('query{
-  archives(sort: "year:DESC", start: 0, where: { event: "Connect" author_contains: "<params$name>" }) {
+as_company <- GQL(glue::glue('query{
+  archives(sort: "year:DESC", start: 0, where: { event: "Connect" company_contains: "<params$name>" }) {
     event
     year
     city
@@ -57,24 +57,7 @@ as_author <- GQL(glue::glue('query{
   }
 }', .open="<", .close=">"))$archives
 
-as_co_author <- GQL(glue::glue('query{
-  archives(sort: "year:DESC", start: 0, where: { event: "Connect" co_author_contains: "<params$name>" }) {
-    event
-    year
-    city
-    region
-    title
-    author
-    company
-    co_author
-    educational_category
-    keywords
-    filename
-  }
-}', .open="<", .close=">"))$archives
-
-all_connects <- bind_rows(as_author, as_co_author) %>%
-  mutate(category = trimws(sapply(strsplit(keywords, ";"),\(x) x[2])))
+all_connects <- do.call(bind_rows, as_company)
 ```
 
 ## Your first connect...
@@ -84,7 +67,7 @@ first <- arrange(all_connects, year, desc(region))[1,]
 was_virtual <- if_else(first$city == "Virtual", T, F)
 ```
 
-Your first connect was PHUSE `r first$region` `r first$year`, you presented for `r first$company` in the `r first$category` stream with _"`r first$title`"_.
+The first connect someone from this company presented was PHUSE `r first$region` `r first$year`!
 
 ```{r first_city, eval=!was_virtual, include=!was_virtual}
 city_req <- GET(glue::glue("https://api.api-ninjas.com/v1/city?name={first$city}"), 
